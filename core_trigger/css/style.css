@@ -1,0 +1,66 @@
+/******************************************************************
+*******************************************************************
+
+Template Name: Effe
+Theme URI: http://www.92five.net
+Description: Personal Blog
+Author: 92five
+Author URI: http://www.92five.net
+Version: 1.0
+
+Designed & Handcrafted by 92five for 92five.net
+
+*******************************************************************
+******************************************************************/
+h1 {
+  padding: 0px;
+  margin: 0px;
+}
+
+body {
+  padding: 0px;
+  margin: 0px;
+  outline: none;
+  border: 0px;
+}
+
+.main-header {
+  background-color: #336699;
+  position: relative;
+  padding: 0px;
+  margin: 0px;
+  width: 100%;
+  height: 100%;
+
+  text-align: center;
+}
+
+.main-header h1 {
+  font-size: 500%;
+}
+
+.status-display {
+  position: relative;
+  float: right;
+  background-color: #b3cce6;
+  padding: 0px;
+  margin: 0px;
+  width: 100%;
+  height: 100%;
+  text-align: left;
+}
+
+.status-display h1 {
+  float: left;
+  padding-right:10%;
+  margin: 0px;
+}
+
+.trig-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #EFFFFF;
+  width: 100%;
+  height: 200px;
+}
