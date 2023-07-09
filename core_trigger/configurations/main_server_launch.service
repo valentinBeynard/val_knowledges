@@ -1,0 +1,12 @@
+# Contents of /etc/systemd/system/main_server_launcher.service
+[Unit]
+Description=This start the Python Main Server application
+After=network.target
+
+[Service]
+Type=simple
+Restart=always
+ExecStart=/bin/python /opt/core_server/MainServer.py
+
+[Install]
+WantedBy=multi-user.target
