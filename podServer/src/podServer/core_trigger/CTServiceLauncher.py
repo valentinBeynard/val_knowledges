@@ -4,8 +4,8 @@ Created on 29 juil. 2023
 @author: valbe
 '''
 
-#from core_trigger import CTService, CTConfiguration
-import CTService, CTConfiguration
+from podServer.core_trigger import CTService, CTConfiguration
+#import CTService, CTConfiguration
 
 import socket
 
@@ -41,6 +41,16 @@ class CTServiceLauncher(CTService.CTService):
         # Create socket to connect to main server
         self.mainServer_socket = 0
         
+        # Connection socket created when mainServer_socket accept() connection from mainServer
+        self.mainServer_conn_socket = 0
+        
+        # True when main Server connects to Trigger Server
+        self.mainServer_on = False
+        # True when main Server and Trigger Server are synchronized
+        self.mainServer_sync= False
+        # Number of connection try with Main Server:
+        self.mainServer_maxTry_cnt = 0 
+        
         
     def setup(self):
         
@@ -56,6 +66,13 @@ class CTServiceLauncher(CTService.CTService):
         
     def run(self, m_request_data):
             
+        print(f"CTServiceLauncher received request ! : {m_request_data}")
+        
+        # Split state from data:
+        m_request_data = m_request_data.split(":")
+        rq_state = m_request_data[0]
+        rq_data = m_request_data[1]
+        
         service_ret = 0   
         #####################################
         # INIT STATE
@@ -73,7 +90,7 @@ class CTServiceLauncher(CTService.CTService):
         #####################################
         if self.state == self.state_list.get('IDDLE'):
                         
-            if m_request_data == 'STARTING':
+            if rq_state == 'STARTING':
                 self.state = self.state_list.get('STARTING')
 
         #####################################
@@ -81,6 +98,8 @@ class CTServiceLauncher(CTService.CTService):
         #####################################             
         if self.state == self.state_list.get('STARTING'):
             
+            print("CTServiceLauncher is STARTING!")
+
             # Power ON the main server
             # main_server_power_on
             
@@ -89,22 +108,58 @@ class CTServiceLauncher(CTService.CTService):
             # Enable listening on socket
             self.mainServer_socket.listen()
             
-            # Try/except catch to handle TIMEOUT condition
-            try:
-                conn_socket, addr = self.mainServer_socket.accept()
+            self.mainServer_maxTry_cnt = 0
             
-                print('Connection entrance from: ', addr)
-            
-                # Receive max 1024 bytes from client connected
-                sck_data = conn_socket.recv(1024)
+            # Continue until Main Server is awake
+            while not (self.mainServer_on and self.mainServer_sync):
+                # Try/except catch to handle TIMEOUT condition on SOCKET connection
+                try:
+                    self.mainServer_conn_socket, addr = self.mainServer_socket.accept()
                 
-                if(sck_data == b'IsUp'):
-                    print('Main Server is Up now !')
-                    self.state = self.state_list.get('RUNNING')
-
-            except socket.timeout:
-                print('Main Server did not answered !')
+                    print('Connection entrance from: ', addr)
+                
+                    # Main server is ON and socket connected
+                    self.mainServer_on = True
+                
+                except socket.timeout:
+                    print('Unable to connect to Main Server... Retrying...')
+                    
+                # Try to synchronize both servers
+                if self.mainServer_on:            
+                    while not self.mainServer_sync:
+                        # Try/except catch to handle TIMEOUT condition on SYNCHRONIZATION
+                        try:
+                            
+                            # Receive max 1024 bytes from client connected
+                            sck_data = self.mainServer_conn_socket.recv(1024)
+                            sck_data = sck_data.decode()
+                            print("sck_data = ", sck_data)
+                            if(sck_data == 'CS_ack'):
+                                print('Main Server is Up now !')
+                                self.mainServer_sync = True
+                                self.state = self.state_list.get('RUNNING')
+                        except socket.timeout:
+                            print('Main Server did not answered !')    
+                        
+                        self.mainServer_maxTry_cnt = self.mainServer_maxTry_cnt + 1
+                        if self.mainServer_maxTry_cnt >= 10:
+                            print("Fail to Sync. with mainServer after 10 tries !")
+                            break
             
+                # If do not succeed to connect with main Server, return to IDDLE_STATE
+                self.mainServer_maxTry_cnt = self.mainServer_maxTry_cnt + 1
+                if self.mainServer_maxTry_cnt >= 10:
+                    print("Fail to connect/sync. with mainServer after 10 tries")
+            
+                    self.mainServer_conn_socket.close()
+                    self.mainServer_socket.close()
+                    
+                    self.state = self.state_list.get('IDDLE')
+                    break
+
+            print("RUNNING DONE !")
+            return service_ret
+        
         #####################################
         # RUNNING STATE
         #####################################            

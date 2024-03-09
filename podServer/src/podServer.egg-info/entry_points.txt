@@ -1,0 +1,3 @@
+[console_scripts]
+pod-cs = podServer.core_server.CSMain:main
+pod-ct = podServer.core_trigger.CTMain:main

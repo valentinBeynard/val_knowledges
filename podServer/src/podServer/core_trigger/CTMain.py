@@ -1,10 +1,24 @@
+from podServer.core import Configuration
+
+from podServer.core_trigger import CTServiceLauncher, CTService
+
+# import CTServiceLauncher, CTService
+
+
 import time
 import os
 
 import socket
 
+CONFIG_PATH = "./trigger_server.conf"
 
-
+CONFIGURATION_DICT = {"MAIN_SERVER_IP" : "192.168.1.1",
+                      "MAIN_SERVER_PORT" : "1204",
+                      "WSGI_ADAPTOR_PORT" : "1205",
+                      "POLLING_TIME_MS" : "6000",
+                      "LAUNCHER_FILE" : "launching.ts",
+                      "ACK_TO_CTSERVER" : "CS_ack",
+                      "ON_SIGNAL_PINOUT" : "4"}
 
 #####################################
 # REGISTER SERVICES (request leading to actions)
@@ -19,8 +33,11 @@ def main_server_power_on(on_signal_pin):
     time.sleep(0.5)
     on_signal_pin.off()
 
-def get_WSGIAdapter_port():
-    return int(CTConfiguration.getConf("WSGI_ADAPTOR_PORT"))
+def get_WSGIAdapter_port(m_conf):
+    return int(m_conf.getConf("WSGI_ADAPTOR_PORT"))
+
+def get_CSServer_ack_symbol(m_conf):
+    return m_conf.getConf("ACK_TO_CTSERVER")
 
 def WSGI_parser(m_request):
     
@@ -41,10 +58,11 @@ def WSGI_parser(m_request):
     if m_request_rad in REGISTER_SERVICES.keys():
         service_output = REGISTER_SERVICES.get(m_request_rad).run(m_request_data)
 
+    print(m_request_rad + "request was parsed successfully")
     return service_output
 
 """
-    Test URL : http://dnsval.vbeynard.fr:1203/gateway?auth_key=GillietBeynard!&pck_rq=CMD_LAUNCH&pck_key=123456
+    Test URL : http://dnsval.vbeynard.fr:1203/gateway?auth_key=GillietBeynard!&pck_rq=LAUNCHER_STARTING&pck_key=123456
 """
 def main():
     
@@ -57,15 +75,24 @@ def main():
     # Return request to WSGI adapter
     wsgi_return_request = 0 
       
-    CTConfiguration.initConf()
+    # Init configuration file
+    conf = Configuration.ConfigHandler(CONFIG_PATH, CONFIGURATION_DICT)
+    conf.initConf()
 
     # Setup registered services
     for service_name, service in REGISTER_SERVICES.items():
         service.setup()
 
     # Bind socket to all available interfaces on port "TRIGGER_SERVER_PORT"
-    dbg_port = get_WSGIAdapter_port()
+    dbg_port = get_WSGIAdapter_port(conf)
     print(dbg_port)
+    
+    # # For DEBUG: close WSGI socket that could still be open:
+    # try:
+    #     wsgiGateway_socket.detach()
+    # except:
+    #     print("wsgiGateway_socket was already closed !")
+    
     wsgiGateway_socket.bind(('127.0.0.1', dbg_port))
 
     while 1:
@@ -98,6 +125,8 @@ def main():
             # Send returned value to WSGI adapter
             wsgi_return_request = str(wsgi_return_request).encode()
             conn_socket.send(wsgi_return_request)
+            
+            conn_socket.close()
             
         except socket.timeout:
             print("Timeout")
